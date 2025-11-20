@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiauGastos - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        gray: {
+                            50: '#fafafa', 100: '#f4f4f5', 800: '#27272a', 900: '#18181b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #fafafa; color: #18181b; }
+        .hidden-screen { display: none !important; }
+        .chart-container { position: relative; height: 280px; width: 100%; max-width: 350px; margin: 0 auto; }
+        .card { background: white; border-radius: 24px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); border: 1px solid #f4f4f5; }
+        .input-minimal { width: 100%; padding: 0.75rem 1rem; background-color: #f4f4f5; border: 1px solid transparent; border-radius: 12px; transition: all 0.2s; }
+        .input-minimal:focus { background-color: white; border-color: #e4e4e7; outline: none; }
+        .btn-minimal { background-color: #18181b; color: white; padding: 0.75rem 1.5rem; border-radius: 12px; font-weight: 500; width: 100%; transition: opacity 0.2s; }
+        .btn-minimal:hover { opacity: 0.9; }
+        .history-scroll::-webkit-scrollbar { width: 6px; }
+        .history-scroll::-webkit-scrollbar-thumb { background-color: #e4e4e7; border-radius: 20px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center md:py-8 px-4 md:px-0 transition-opacity duration-500">
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen" class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-gray-900 rounded-full mx-auto flex items-center justify-center text-2xl mb-4">🐾</div>
+            <h1 class="text-3xl font-semibold tracking-tight text-gray-900">MiauGastos</h1>
+            <p class="text-gray-500 mt-2">Quem vai cuidar das contas hoje?</p>
+        </div>
+
+        <div class="card space-y-6">
+            <div>
+                <label class="block text-xs font-medium text-gray-500 uppercase mb-2">Nome do Usuário</label>
+                <input type="text" id="username-input" class="input-minimal" placeholder="Ex: Ana, Joao..." autocomplete="off">
+            </div>
+            <button onclick="fazerLogin()" class="btn-minimal">Entrar</button>
+            <p class="text-xs text-center text-gray-400">Se o nome não existir, criaremos um novo perfil.</p>
+        </div>
+    </div>
+
+    <!-- TELA DO APP (Inicialmente Oculta) -->
+    <main id="app-screen" class="w-full max-w-5xl hidden-screen opacity-0 transition-opacity duration-500">
+        
+        <!-- Cabeçalho do App -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-12 px-2">
+            <div class="text-center md:text-left mb-6 md:mb-0">
+                <h1 class="text-2xl font-semibold tracking-tight text-gray-900 flex items-center gap-2">
+                    <span class="text-gray-400 font-normal">Olá,</span> <span id="display-username">Usuario</span>
+                </h1>
+                <button onclick="fazerLogout()" class="text-xs text-red-500 hover:text-red-700 mt-1 underline">Sair / Trocar Usuário</button>
+            </div>
+            
+            <div class="flex gap-6">
+                <div class="text-right">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Total</p>
+                    <p id="total-geral" class="text-2xl font-semibold text-gray-900">R$ 0,00</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Coluna Esquerda -->
+            <div class="lg:col-span-4 space-y-8">
+                <div class="card">
+                    <h2 class="text-lg font-medium mb-6 text-gray-800">Novo Gasto</h2>
+                    <form id="form-gasto" class="space-y-4">
+                        <input type="text" id="descricao" class="input-minimal" placeholder="Descrição" required>
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="number" id="valor" class="input-minimal" placeholder="R$ 0,00" min="0.01" step="0.01" required>
+                            <select id="categoria" class="input-minimal bg-white cursor-pointer" required>
+                                <option value="" disabled selected>Categoria</option>
+                                <option value="Alimentação">Alimentação</option>
+                                <option value="Saúde">Saúde</option>
+                                <option value="Brinquedos">Brinquedos</option>
+                                <option value="Higiene">Higiene</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-minimal mt-2">Adicionar</button>
+                    </form>
+                </div>
+
+                <div class="card flex flex-col items-center justify-center">
+                    <h2 class="text-lg font-medium mb-6 w-full text-left text-gray-800">Distribuição</h2>
+                    <div class="chart-container">
+                        <canvas id="grafico-categorias"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coluna Direita -->
+            <div class="lg:col-span-8 space-y-8">
+                <div class="card h-[600px] flex flex-col">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-medium text-gray-800">Histórico</h2>
+                        <button onclick="limparTudo()" class="text-xs text-red-400 hover:text-red-600">Limpar Conta</button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto history-scroll pr-2">
+                        <ul id="lista-historico" class="space-y-0"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let usuarioAtual = null;
+        let gastos = [];
+        let chartInstance = null;
+        
+        // Elementos DOM
+        const loginScreen = document.getElementById('login-screen');
+        const appScreen = document.getElementById('app-screen');
+        const usernameInput = document.getElementById('username-input');
+        
+        // Cores e Configs
+        const coresCategoria = { 'Alimentação': '#52525b', 'Saúde': '#ef4444', 'Brinquedos': '#f59e0b', 'Higiene': '#3b82f6', 'Outros': '#d4d4d8' };
+
+        // --- SISTEMA DE LOGIN ---
+
+        function fazerLogin() {
+            const nome = usernameInput.value.trim();
+            if (!nome) return alert("Por favor, digite um nome.");
+            
+            usuarioAtual = nome.toLowerCase(); // Padroniza para minúsculo (joao = Joao)
+            document.getElementById('display-username').textContent = nome;
+            
+            // Efeito de transição
+            loginScreen.classList.add('hidden-screen');
+            appScreen.classList.remove('hidden-screen');
+            
+            // Pequeno delay para animar opacidade
+            setTimeout(() => {
+                appScreen.classList.remove('opacity-0');
+                document.body.classList.remove('justify-center'); // Remove centralização vertical do login
+            }, 50);
+
+            carregarDadosDoUsuario();
+        }
+
+        function fazerLogout() {
+            usuarioAtual = null;
+            gastos = [];
+            
+            appScreen.classList.add('opacity-0');
+            setTimeout(() => {
+                appScreen.classList.add('hidden-screen');
+                loginScreen.classList.remove('hidden-screen');
+                document.body.classList.add('justify-center');
+                usernameInput.value = '';
+            }, 300);
+        }
+
+        // Pressionar Enter no input de login
+        usernameInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') fazerLogin();
+        });
+
+
+        // --- GERENCIAMENTO DE DADOS (Multi-usuário) ---
+
+        function carregarDadosDoUsuario() {
+            // A chave mágica: usamos o nome do usuário como parte da chave de salvamento
+            const chaveStorage = `miauGastos_user_${usuarioAtual}`;
+            gastos = JSON.parse(localStorage.getItem(chaveStorage)) || [];
+            atualizarUI();
+        }
+
+        function salvarDados() {
+            if (!usuarioAtual) return;
+            const chaveStorage = `miauGastos_user_${usuarioAtual}`;
+            localStorage.setItem(chaveStorage, JSON.stringify(gastos));
+            atualizarUI();
+        }
+
+        window.limparTudo = function() {
+            if(confirm(`Tem certeza que deseja apagar todos os dados de ${usuarioAtual}?`)) {
+                gastos = [];
+                salvarDados();
+            }
+        }
+
+
+        // --- LÓGICA DA APP (Igual à anterior, mas chamando salvarDados atualizado) ---
+
+        function formatarMoeda(valor) {
+            return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        function calcularTotais() {
+            const totalGeral = gastos.reduce((acc, g) => acc + g.valor, 0);
+            const somas = {};
+            gastos.forEach(g => somas[g.categoria] = (somas[g.categoria] || 0) + g.valor);
+            return { totalGeral, somas };
+        }
+
+        function renderizarHistorico() {
+            const lista = document.getElementById('lista-historico');
+            lista.innerHTML = '';
+            if (gastos.length === 0) {
+                lista.innerHTML = '<li class="text-center py-10 text-gray-400 font-light">Nenhum lançamento.</li>';
+                return;
+            }
+            gastos.slice().reverse().forEach(g => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center py-4 border-b border-gray-50 hover:bg-gray-50 px-2 rounded transition-colors group';
+                li.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 rounded-full" style="background-color: ${coresCategoria[g.categoria]}"></div>
+                        <div><p class="text-gray-900 font-medium text-sm">${g.descricao}</p><p class="text-xs text-gray-400">${g.categoria}</p></div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-gray-900">${formatarMoeda(g.valor)}</span>
+                        <button onclick="deletarGasto(${g.id})" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                    </div>`;
+                lista.appendChild(li);
+            });
+        }
+
+        window.deletarGasto = function(id) {
+            gastos = gastos.filter(g => g.id !== id);
+            salvarDados();
+        }
+
+        function atualizarGrafico(somas) {
+            const ctx = document.getElementById('grafico-categorias').getContext('2d');
+            if (!chartInstance) {
+                Chart.defaults.font.family = "'Inter', sans-serif";
+                chartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { datasets: [{ borderWidth: 0, hoverOffset: 4 }] },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        cutout: '75%', 
+                        plugins: { legend: { display: false } } 
+                    }
+                });
+            }
+            chartInstance.data.labels = Object.keys(somas);
+            chartInstance.data.datasets[0].data = Object.values(somas);
+            chartInstance.data.datasets[0].backgroundColor = Object.keys(somas).map(k => coresCategoria[k]);
+            chartInstance.update();
+        }
+
+        function atualizarUI() {
+            const { totalGeral, somas } = calcularTotais();
+            document.getElementById('total-geral').textContent = formatarMoeda(totalGeral);
+            renderizarHistorico();
+            atualizarGrafico(somas);
+        }
+
+        document.getElementById('form-gasto').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const desc = document.getElementById('descricao').value;
+            const val = parseFloat(document.getElementById('valor').value);
+            const cat = document.getElementById('categoria').value;
+            if (!desc || !val || !cat) return;
+            gastos.push({ id: Date.now(), descricao: desc, valor: val, categoria: cat });
+            salvarDados();
+            e.target.reset();
+            document.getElementById('categoria').value = ""; 
+        });
+
+    </script>
+</body>
+</html>
